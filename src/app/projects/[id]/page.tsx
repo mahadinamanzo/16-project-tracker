@@ -2,8 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { auth } from "../../../auth";
-import { requireUserId } from "../../../lib/current-user";
+import { requireUser } from "../../../lib/session";
 import {
   getProject,
   getTasks,
@@ -43,6 +42,7 @@ function parsePriority(value: string | undefined): TaskPriority | undefined {
 export async function generateMetadata({
   params,
 }: Pick<ProjectPageProps, "params">): Promise<Metadata> {
+  const { id: ownerId } = await requireUser();
   const { id } = await params;
   const projectId = parseProjectId(id);
 
@@ -50,13 +50,7 @@ export async function generateMetadata({
     return { title: "Project not found | Project Tracker" };
   }
 
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return { title: "Sign in | Project Tracker" };
-  }
-
-  const project = await getProjectForRequest(projectId, session.user.id);
+  const project = await getProjectForRequest(projectId, ownerId);
 
   if (!project) {
     return { title: "Project not found | Project Tracker" };
@@ -73,8 +67,8 @@ export default async function ProjectPage({
   params,
   searchParams,
 }: ProjectPageProps) {
+  const { id: ownerId } = await requireUser();
   const [{ id }, search] = await Promise.all([params, searchParams]);
-  const ownerId = await requireUserId();
   const projectId = parseProjectId(id);
 
   if (projectId === undefined) {

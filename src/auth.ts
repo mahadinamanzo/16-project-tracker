@@ -1,9 +1,8 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
-import type { ProjectTrackerSession } from "./types/next-auth";
 import { sql } from "./lib/db";
 
-const nextAuth = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [GitHub],
   session: { strategy: "jwt" },
   callbacks: {
@@ -67,31 +66,3 @@ const nextAuth = NextAuth({
     },
   },
 });
-
-export const { handlers, signIn, signOut } = nextAuth;
-
-export async function auth(): Promise<ProjectTrackerSession | null> {
-  const session = await nextAuth.auth();
-
-  if (!session) {
-    return null;
-  }
-
-  if (!session.user) {
-    throw new Error("The authenticated session is missing its user.");
-  }
-
-  const userId = Number(session.user.id);
-
-  if (!Number.isSafeInteger(userId) || userId < 1) {
-    throw new Error("The authenticated session has an invalid user ID.");
-  }
-
-  return {
-    ...session,
-    user: {
-      ...session.user,
-      id: userId,
-    },
-  };
-}

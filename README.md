@@ -30,6 +30,9 @@ A server-rendered project and task tracker backed by Neon Postgres.
 - `src/auth.ts` configures Auth.js with GitHub and upserts users into the `users` table. Its JWT carries the application user ID, which is exposed as `session.user.id`.
 - Project reads, statistics, and mutations are scoped to the signed-in user's `owner_id`; server actions verify ownership in the SQL mutation itself.
 - The `/api/auth/[...nextauth]` route handles OAuth callbacks. The shared `UserMenu` displays the GitHub avatar and name with sign-out, or a sign-in button.
+- `src/middleware.ts` redirects unauthenticated requests to `/login` with their original path and query as `callbackUrl`, except for login, Auth.js endpoints, and static assets. After GitHub returns to the Auth.js callback, Auth.js sets the JWT session cookie and sign-in resumes at that URL.
+- `src/lib/callback-url.ts` validates callback destinations as same-site relative paths, falling back to `/` for external or malformed values to prevent open redirects.
+- Data pages and project mutation Server Actions call `requireUser()` themselves. Middleware is only a request-level guard: Server Actions can be invoked directly, and matchers can change or be bypassed by other server entry points. Authentication therefore must be checked at the operation that reads or changes private data.
 - Aggregate statistics are calculated in SQL using `COUNT`, `FILTER`, and `GROUP BY`; the page only formats the returned counts as simple Tailwind bars.
 
 ## Setup

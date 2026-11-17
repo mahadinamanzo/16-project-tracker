@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { requireUserId } from "../lib/current-user";
+import { requireUser } from "../lib/session";
 import { getProjects } from "../lib/queries";
 import ProjectForm from "./project-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const ownerId = await requireUserId();
+  const { id: ownerId } = await requireUser();
   const projects = await getProjects(ownerId);
 
   return (

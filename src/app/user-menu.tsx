@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { auth, signIn, signOut } from "../auth";
+import { requireUser } from "../lib/session";
 
 export default async function UserMenu() {
   const session = await auth();
@@ -30,6 +31,7 @@ export default async function UserMenu() {
         <form
           action={async () => {
             "use server";
+            await requireUser();
             await signOut({ redirectTo: "/" });
           }}
         >

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { ZodError } from "zod";
-import { getCurrentUserId } from "../lib/current-user";
+import { requireUser } from "../lib/session";
 import { sql } from "../lib/db";
 import {
   DeleteProjectInput,
@@ -34,22 +34,11 @@ function notFound(field: string, message: string): ActionState {
   return { ok: false, errors: { [field]: [message] } };
 }
 
-function unauthorized(): ActionState {
-  return {
-    ok: false,
-    errors: { _form: ["Sign in to manage your projects and tasks."] },
-  };
-}
-
 export async function createProject(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const userId = await getCurrentUserId();
-
-  if (userId === null) {
-    return unauthorized();
-  }
+  const { id: userId } = await requireUser();
 
   const parsed = ProjectInput.safeParse(formValues(formData));
 
@@ -71,11 +60,7 @@ export async function createTask(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const userId = await getCurrentUserId();
-
-  if (userId === null) {
-    return unauthorized();
-  }
+  const { id: userId } = await requireUser();
 
   const parsed = TaskInput.safeParse(formValues(formData));
 
@@ -108,11 +93,7 @@ export async function updateTaskStatus(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const userId = await getCurrentUserId();
-
-  if (userId === null) {
-    return unauthorized();
-  }
+  const { id: userId } = await requireUser();
 
   const parsed = UpdateTaskStatusInput.safeParse(formValues(formData));
 
@@ -147,11 +128,7 @@ export async function deleteTask(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const userId = await getCurrentUserId();
-
-  if (userId === null) {
-    return unauthorized();
-  }
+  const { id: userId } = await requireUser();
 
   const parsed = DeleteTaskInput.safeParse(formValues(formData));
 
@@ -185,11 +162,7 @@ export async function deleteProject(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const userId = await getCurrentUserId();
-
-  if (userId === null) {
-    return unauthorized();
-  }
+  const { id: userId } = await requireUser();
 
   const parsed = DeleteProjectInput.safeParse(formValues(formData));
 
