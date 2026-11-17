@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { getProjects } from "../lib/queries";
+import ProjectForm from "./project-form";
 
 export default async function HomePage() {
   const projects = await getProjects();
@@ -16,6 +18,8 @@ export default async function HomePage() {
           Keep track of your projects and see what is getting done.
         </p>
       </header>
+
+      <ProjectForm />
 
       {projects.length === 0 ? (
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
@@ -51,7 +55,12 @@ export default async function HomePage() {
                 />
                 <div className="p-6">
                   <h2 className="text-xl font-semibold text-slate-950">
-                    {project.name}
+                    <Link
+                      className="hover:underline"
+                      href={`/projects/${project.id}`}
+                    >
+                      {project.name}
+                    </Link>
                   </h2>
                   <p className="mt-2 min-h-12 text-sm leading-6 text-slate-600">
                     {project.description || "No description yet."}
