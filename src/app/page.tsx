@@ -2,21 +2,31 @@ import Link from "next/link";
 import { getProjects } from "../lib/queries";
 import ProjectForm from "./project-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const projects = await getProjects();
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-6 py-12">
-      <header className="mb-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Workspace
-        </p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
-          Project Tracker
-        </h1>
-        <p className="mt-3 text-slate-600">
-          Keep track of your projects and see what is getting done.
-        </p>
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Workspace
+          </p>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+            Project Tracker
+          </h1>
+          <p className="mt-3 text-slate-600">
+            Keep track of your projects and see what is getting done.
+          </p>
+        </div>
+        <Link
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+          href="/stats"
+        >
+          View statistics
+        </Link>
       </header>
 
       <ProjectForm />

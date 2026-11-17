@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -8,10 +10,21 @@ import {
 import Board from "./board";
 import TaskForm from "./task-form";
 
+export const dynamic = "force-dynamic";
+
 type ProjectPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const getProjectForRequest = cache(getProject);
+
+function parseProjectId(value: string): number | undefined {
+  const projectId = Number(value);
+  return Number.isSafeInteger(projectId) && projectId > 0
+    ? projectId
+    : undefined;
+}
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -25,18 +38,41 @@ function parsePriority(value: string | undefined): TaskPriority | undefined {
   return undefined;
 }
 
+export async function generateMetadata({
+  params,
+}: Pick<ProjectPageProps, "params">): Promise<Metadata> {
+  const { id } = await params;
+  const projectId = parseProjectId(id);
+
+  if (projectId === undefined) {
+    return { title: "Project not found | Project Tracker" };
+  }
+
+  const project = await getProjectForRequest(projectId);
+
+  if (!project) {
+    return { title: "Project not found | Project Tracker" };
+  }
+
+  return {
+    title: `${project.name} | Project Tracker`,
+    description:
+      project.description || `Tasks and progress for ${project.name}.`,
+  };
+}
+
 export default async function ProjectPage({
   params,
   searchParams,
 }: ProjectPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
-  const projectId = Number(id);
+  const projectId = parseProjectId(id);
 
-  if (!Number.isSafeInteger(projectId) || projectId < 1) {
+  if (projectId === undefined) {
     notFound();
   }
 
-  const project = await getProject(projectId);
+  const project = await getProjectForRequest(projectId);
 
   if (!project) {
     notFound();
