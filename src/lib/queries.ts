@@ -28,6 +28,7 @@ export type Task = {
 export type TaskFilters = {
   status?: TaskStatus;
   priority?: TaskPriority;
+  q?: string;
 };
 
 export async function getProjects(): Promise<ProjectWithCounts[]> {
@@ -79,6 +80,10 @@ export async function getTasks(
     WHERE project_id = ${projectId}
       AND (${filters.status === undefined}::boolean OR status = ${filters.status ?? "todo"})
       AND (${filters.priority === undefined}::boolean OR priority = ${filters.priority ?? "low"})
+      AND (
+        ${filters.q === undefined}::boolean
+        OR title ILIKE ${`%${filters.q ?? ""}%`}
+      )
     ORDER BY created_at DESC
   `;
 

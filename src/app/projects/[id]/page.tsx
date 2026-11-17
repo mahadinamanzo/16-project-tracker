@@ -1,13 +1,35 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProject, getTasks } from "../../../lib/queries";
+import {
+  getProject,
+  getTasks,
+  type TaskPriority,
+} from "../../../lib/queries";
+import Board from "./board";
 import TaskForm from "./task-form";
 
 type ProjectPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ProjectPage({ params }: ProjectPageProps) {
-  const { id } = await params;
+function firstValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePriority(value: string | undefined): TaskPriority | undefined {
+  if (value === "low" || value === "medium" || value === "high") {
+    return value;
+  }
+
+  return undefined;
+}
+
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: ProjectPageProps) {
+  const [{ id }, search] = await Promise.all([params, searchParams]);
   const projectId = Number(id);
 
   if (!Number.isSafeInteger(projectId) || projectId < 1) {
@@ -20,14 +42,26 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  const tasks = await getTasks(projectId);
+  const priority = parsePriority(firstValue(search.priority));
+  const q = (firstValue(search.q) ?? "").trim().slice(0, 100);
+  const tasks = await getTasks(projectId, {
+    priority,
+    q: q || undefined,
+  });
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-6 py-12">
-      <header className="mb-10">
+    <main className="mx-auto min-h-screen max-w-7xl px-6 py-12">
+      <header className="mb-8">
+        <Link
+          className="text-sm font-medium text-slate-600 hover:text-slate-950"
+          href="/"
+        >
+          ← All projects
+        </Link>
         <div
           aria-hidden="true"
-          className="mb-5 h-2 w-16 rounded-full"
+          className="mb-5 mt-6 h-2 w-16 rounded-full"
           style={{ backgroundColor: project.color }}
         />
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -43,57 +77,68 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         )}
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <section aria-labelledby="tasks-heading">
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <h2
-              className="text-xl font-semibold text-slate-950"
-              id="tasks-heading"
-            >
-              Tasks
-            </h2>
-            <p className="text-sm text-slate-500">
-              {project.done_count} of {project.task_count} done
-            </p>
-          </div>
+      <form
+        action={`/projects/${projectId}`}
+        className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+        method="get"
+      >
+        <div>
+          <label
+            className="block text-sm font-medium text-slate-700"
+            htmlFor="priority-filter"
+          >
+            Priority
+          </label>
+          <select
+            className="mt-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            defaultValue={priority ?? ""}
+            id="priority-filter"
+            name="priority"
+          >
+            <option value="">All priorities</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div className="min-w-52 flex-1">
+          <label
+            className="block text-sm font-medium text-slate-700"
+            htmlFor="task-search"
+          >
+            Search tasks
+          </label>
+          <input
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            defaultValue={q}
+            id="task-search"
+            maxLength={100}
+            name="q"
+            placeholder="Search by title"
+            type="search"
+          />
+        </div>
+        <button
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+          type="submit"
+        >
+          Apply filters
+        </button>
+        {(priority || q) && (
+          <Link
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href={`/projects/${projectId}`}
+          >
+            Clear
+          </Link>
+        )}
+      </form>
 
-          {tasks.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">
-              No tasks yet.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {tasks.map((task) => (
-                <li
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"
-                  key={task.id}
-                >
-                  <div>
-                    <h3 className="font-medium text-slate-900">{task.title}</h3>
-                    {task.due_date && (
-                      <p className="mt-1 text-sm text-slate-500">
-                        Due {task.due_date}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs font-medium">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
-                      {task.status}
-                    </span>
-                    <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700">
-                      {task.priority}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      <Board projectId={project.id} tasks={tasks} today={today} />
 
-        <aside>
-          <TaskForm projectId={project.id} />
-        </aside>
-      </div>
+      <section className="mt-10 max-w-xl" aria-label="Create a task">
+        <TaskForm projectId={project.id} />
+      </section>
     </main>
   );
 }
