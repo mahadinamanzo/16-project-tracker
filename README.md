@@ -108,7 +108,9 @@ A server-rendered project and task tracker backed by Neon Postgres.
    );
    ```
 
-8. Install dependencies and start the development server:
+8. If upgrading a database with existing ownerless projects, run [`scripts/backfill-ownerless-projects.sql`](./scripts/backfill-ownerless-projects.sql) once in the Neon SQL Editor after replacing its GitHub ID placeholder with your numeric GitHub account ID. It only updates rows where `owner_id IS NULL` and returns the affected projects.
+
+9. Install dependencies and start the development server:
 
    ```powershell
    npm install
