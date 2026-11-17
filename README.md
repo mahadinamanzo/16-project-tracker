@@ -10,6 +10,7 @@ A server-rendered project and task tracker backed by Neon Postgres.
 - Filter project tasks by priority and title.
 - View aggregate task, priority, status, overdue, and project completion statistics.
 - Show loading and error states while server-rendered pages load.
+- GitHub sign-in with private, per-user projects and tasks.
 
 ## Stack
 
@@ -18,6 +19,7 @@ A server-rendered project and task tracker backed by Neon Postgres.
 - Tailwind CSS
 - Neon Postgres with `@neondatabase/serverless`
 - Zod for server-side form validation
+- Auth.js (NextAuth.js v5) with the GitHub OAuth provider
 
 ## Architecture
 
@@ -25,6 +27,9 @@ A server-rendered project and task tracker backed by Neon Postgres.
 - `src/lib/queries.ts` contains typed read functions. It uses Neon tagged-template SQL so interpolated values are sent as parameters.
 - `src/app/actions.ts` contains Server Actions for writes. They validate submitted `FormData` with Zod, execute parameterized SQL, and revalidate affected routes.
 - Client form components use React `useActionState`; the Kanban board uses `useOptimistic` for task moves and deletes.
+- `src/auth.ts` configures Auth.js with GitHub and upserts users into the `users` table. Its JWT carries the application user ID, which is exposed as `session.user.id`.
+- Project reads, statistics, and mutations are scoped to the signed-in user's `owner_id`; server actions verify ownership in the SQL mutation itself.
+- The `/api/auth/[...nextauth]` route handles OAuth callbacks. The shared `UserMenu` displays the GitHub avatar and name with sign-out, or a sign-in button.
 - Aggregate statistics are calculated in SQL using `COUNT`, `FILTER`, and `GROUP BY`; the page only formats the returned counts as simple Tailwind bars.
 
 ## Setup
@@ -45,11 +50,44 @@ A server-rendered project and task tracker backed by Neon Postgres.
 
    Keep `.env.local` private; it is ignored by Git. `.env.example` intentionally contains no credential.
 
-5. Create the tables in the Neon SQL Editor:
+5. In GitHub, create an OAuth App with this callback URL for local development:
+
+   ```text
+   http://localhost:3000/api/auth/callback/github
+   ```
+
+   Add its client ID and newly generated client secret to `.env.local`, together with an Auth.js secret:
+
+   ```dotenv
+   AUTH_GITHUB_ID=your-github-oauth-client-id
+   AUTH_GITHUB_SECRET=your-new-github-oauth-client-secret
+   AUTH_SECRET=your-generated-authjs-secret
+   ```
+
+   Generate an `AUTH_SECRET` with `npx auth secret`. Do not commit `.env.local` or share OAuth secrets in chat.
+
+6. The OAuth flow is:
+
+   1. The user selects **Sign in with GitHub**; Auth.js redirects the browser to GitHub's authorization page.
+   2. The user approves the OAuth request on GitHub.
+   3. GitHub redirects to `/api/auth/callback/github` with a temporary authorization code.
+   4. Auth.js exchanges the code for the GitHub profile, upserts the local user by `github_id`, then stores the local numeric user ID in its JWT.
+   5. Auth.js sets an encrypted session cookie. On later requests it verifies the cookie and exposes that numeric ID as `session.user.id`; the app uses it to scope project access.
+
+7. Create the tables in the Neon SQL Editor:
 
    ```sql
+   CREATE TABLE users (
+     id SERIAL PRIMARY KEY,
+     github_id TEXT NOT NULL UNIQUE,
+     name TEXT,
+     email TEXT,
+     image TEXT
+   );
+
    CREATE TABLE projects (
      id SERIAL PRIMARY KEY,
+     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
      name TEXT NOT NULL,
      description TEXT,
      color TEXT NOT NULL DEFAULT '#6366f1',
@@ -67,7 +105,7 @@ A server-rendered project and task tracker backed by Neon Postgres.
    );
    ```
 
-6. Install dependencies and start the development server:
+8. Install dependencies and start the development server:
 
    ```powershell
    npm install
@@ -85,5 +123,6 @@ npm run build
 
 ## Schema overview
 
-- `projects`: serial ID, name, optional description, display color, and creation timestamp.
+- `users`: serial ID, unique GitHub account ID, and profile name, email, and avatar URL.
+- `projects`: serial ID, owner foreign key, name, optional description, display color, and creation timestamp.
 - `tasks`: serial ID, project foreign key with cascading delete, title, checked status and priority values, optional due date, and creation timestamp.

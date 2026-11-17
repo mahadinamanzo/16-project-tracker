@@ -70,7 +70,9 @@ export type ProjectTrackerStats = {
   overdueTasks: OverdueTask[];
 };
 
-export async function getProjects(): Promise<ProjectWithCounts[]> {
+export async function getProjects(
+  ownerId: number,
+): Promise<ProjectWithCounts[]> {
   const projects = (await sql`
     SELECT
       p.id,
@@ -82,6 +84,7 @@ export async function getProjects(): Promise<ProjectWithCounts[]> {
       COUNT(t.id) FILTER (WHERE t.status = 'done')::int AS done_count
     FROM projects AS p
     LEFT JOIN tasks AS t ON t.project_id = p.id
+    WHERE p.owner_id = ${ownerId}
     GROUP BY p.id
     ORDER BY p.created_at DESC
   `) as ProjectWithCounts[];
@@ -89,7 +92,10 @@ export async function getProjects(): Promise<ProjectWithCounts[]> {
   return projects;
 }
 
-export async function getProject(id: number): Promise<ProjectWithCounts | null> {
+export async function getProject(
+  id: number,
+  ownerId: number,
+): Promise<ProjectWithCounts | null> {
   const projects = (await sql`
     SELECT
       p.id,
@@ -101,7 +107,7 @@ export async function getProject(id: number): Promise<ProjectWithCounts | null> 
       COUNT(t.id) FILTER (WHERE t.status = 'done')::int AS done_count
     FROM projects AS p
     LEFT JOIN tasks AS t ON t.project_id = p.id
-    WHERE p.id = ${id}
+    WHERE p.id = ${id} AND p.owner_id = ${ownerId}
     GROUP BY p.id
     LIMIT 1
   `) as ProjectWithCounts[];
@@ -111,25 +117,37 @@ export async function getProject(id: number): Promise<ProjectWithCounts | null> 
 
 export async function getTasks(
   projectId: number,
+  ownerId: number,
   filters: TaskFilters = {},
 ): Promise<Task[]> {
   const tasks = (await sql`
-    SELECT id, project_id, title, status, priority, due_date, created_at
-    FROM tasks
-    WHERE project_id = ${projectId}
-      AND (${filters.status === undefined}::boolean OR status = ${filters.status ?? "todo"})
-      AND (${filters.priority === undefined}::boolean OR priority = ${filters.priority ?? "low"})
+    SELECT
+      t.id,
+      t.project_id,
+      t.title,
+      t.status,
+      t.priority,
+      t.due_date,
+      t.created_at
+    FROM tasks AS t
+    INNER JOIN projects AS p ON p.id = t.project_id
+    WHERE t.project_id = ${projectId}
+      AND p.owner_id = ${ownerId}
+      AND (${filters.status === undefined}::boolean OR t.status = ${filters.status ?? "todo"})
+      AND (${filters.priority === undefined}::boolean OR t.priority = ${filters.priority ?? "low"})
       AND (
         ${filters.q === undefined}::boolean
-        OR title ILIKE ${`%${filters.q ?? ""}%`}
+        OR t.title ILIKE ${`%${filters.q ?? ""}%`}
       )
-    ORDER BY created_at DESC
+    ORDER BY t.created_at DESC
   `) as Task[];
 
   return tasks;
 }
 
-export async function getProjectTrackerStats(): Promise<ProjectTrackerStats> {
+export async function getProjectTrackerStats(
+  ownerId: number,
+): Promise<ProjectTrackerStats> {
   const [summaryResult, projectResult] = await Promise.all([
     sql`
       SELECT
@@ -150,6 +168,7 @@ export async function getProjectTrackerStats(): Promise<ProjectTrackerStats> {
         )::int AS high_priority_count
       FROM projects AS p
       LEFT JOIN tasks AS t ON t.project_id = p.id
+      WHERE p.owner_id = ${ownerId}
     `,
     sql`
       SELECT
@@ -183,6 +202,7 @@ export async function getProjectTrackerStats(): Promise<ProjectTrackerStats> {
         ) AS overdue_tasks
       FROM projects AS p
       LEFT JOIN tasks AS t ON t.project_id = p.id
+      WHERE p.owner_id = ${ownerId}
       GROUP BY p.id
       ORDER BY p.name
     `,

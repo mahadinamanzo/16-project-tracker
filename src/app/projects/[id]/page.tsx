@@ -2,6 +2,8 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { auth } from "../../../auth";
+import { requireUserId } from "../../../lib/current-user";
 import {
   getProject,
   getTasks,
@@ -48,7 +50,13 @@ export async function generateMetadata({
     return { title: "Project not found | Project Tracker" };
   }
 
-  const project = await getProjectForRequest(projectId);
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return { title: "Sign in | Project Tracker" };
+  }
+
+  const project = await getProjectForRequest(projectId, session.user.id);
 
   if (!project) {
     return { title: "Project not found | Project Tracker" };
@@ -66,13 +74,14 @@ export default async function ProjectPage({
   searchParams,
 }: ProjectPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
+  const ownerId = await requireUserId();
   const projectId = parseProjectId(id);
 
   if (projectId === undefined) {
     notFound();
   }
 
-  const project = await getProjectForRequest(projectId);
+  const project = await getProjectForRequest(projectId, ownerId);
 
   if (!project) {
     notFound();
@@ -80,7 +89,7 @@ export default async function ProjectPage({
 
   const priority = parsePriority(firstValue(search.priority));
   const q = (firstValue(search.q) ?? "").trim().slice(0, 100);
-  const tasks = await getTasks(projectId, {
+  const tasks = await getTasks(projectId, ownerId, {
     priority,
     q: q || undefined,
   });

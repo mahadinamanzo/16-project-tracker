@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireUserId } from "../../lib/current-user";
 import { getProjectTrackerStats } from "../../lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,9 @@ function BarChart({ items }: { items: BarItem[] }) {
 }
 
 export default async function StatsPage() {
-  const { summary, projects, overdueTasks } = await getProjectTrackerStats();
+  const ownerId = await requireUserId();
+  const { summary, projects, overdueTasks } =
+    await getProjectTrackerStats(ownerId);
   const statuses: BarItem[] = [
     { label: "To do", count: summary.todo_count, color: "bg-slate-500" },
     { label: "Doing", count: summary.doing_count, color: "bg-amber-500" },

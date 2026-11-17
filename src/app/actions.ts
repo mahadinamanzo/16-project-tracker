@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { ZodError } from "zod";
+import { getCurrentUserId } from "../lib/current-user";
 import { sql } from "../lib/db";
 import {
   DeleteProjectInput,
@@ -33,10 +34,23 @@ function notFound(field: string, message: string): ActionState {
   return { ok: false, errors: { [field]: [message] } };
 }
 
+function unauthorized(): ActionState {
+  return {
+    ok: false,
+    errors: { _form: ["Sign in to manage your projects and tasks."] },
+  };
+}
+
 export async function createProject(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await getCurrentUserId();
+
+  if (userId === null) {
+    return unauthorized();
+  }
+
   const parsed = ProjectInput.safeParse(formValues(formData));
 
   if (!parsed.success) {
@@ -45,8 +59,8 @@ export async function createProject(
 
   const { name, description, color } = parsed.data;
   await sql`
-    INSERT INTO projects (name, description, color)
-    VALUES (${name}, ${description || null}, ${color})
+    INSERT INTO projects (owner_id, name, description, color)
+    VALUES (${userId}, ${name}, ${description || null}, ${color})
   `;
 
   revalidatePath("/");
@@ -57,6 +71,12 @@ export async function createTask(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await getCurrentUserId();
+
+  if (userId === null) {
+    return unauthorized();
+  }
+
   const parsed = TaskInput.safeParse(formValues(formData));
 
   if (!parsed.success) {
@@ -67,7 +87,11 @@ export async function createTask(
   const created = await sql`
     INSERT INTO tasks (project_id, title, status, priority, due_date)
     SELECT ${project_id}, ${title}, ${status}, ${priority}, ${due_date ?? null}
-    WHERE EXISTS (SELECT 1 FROM projects WHERE id = ${project_id})
+    WHERE EXISTS (
+      SELECT 1
+      FROM projects
+      WHERE id = ${project_id} AND owner_id = ${userId}
+    )
     RETURNING id
   `;
 
@@ -84,6 +108,12 @@ export async function updateTaskStatus(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await getCurrentUserId();
+
+  if (userId === null) {
+    return unauthorized();
+  }
+
   const parsed = UpdateTaskStatusInput.safeParse(formValues(formData));
 
   if (!parsed.success) {
@@ -94,7 +124,13 @@ export async function updateTaskStatus(
   const updated = await sql`
     UPDATE tasks
     SET status = ${status}
-    WHERE id = ${task_id} AND project_id = ${project_id}
+    WHERE id = ${task_id}
+      AND project_id = ${project_id}
+      AND EXISTS (
+        SELECT 1
+        FROM projects
+        WHERE id = ${project_id} AND owner_id = ${userId}
+      )
     RETURNING id
   `;
 
@@ -111,6 +147,12 @@ export async function deleteTask(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await getCurrentUserId();
+
+  if (userId === null) {
+    return unauthorized();
+  }
+
   const parsed = DeleteTaskInput.safeParse(formValues(formData));
 
   if (!parsed.success) {
@@ -120,7 +162,13 @@ export async function deleteTask(
   const { project_id, task_id } = parsed.data;
   const deleted = await sql`
     DELETE FROM tasks
-    WHERE id = ${task_id} AND project_id = ${project_id}
+    WHERE id = ${task_id}
+      AND project_id = ${project_id}
+      AND EXISTS (
+        SELECT 1
+        FROM projects
+        WHERE id = ${project_id} AND owner_id = ${userId}
+      )
     RETURNING id
   `;
 
@@ -137,6 +185,12 @@ export async function deleteProject(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const userId = await getCurrentUserId();
+
+  if (userId === null) {
+    return unauthorized();
+  }
+
   const parsed = DeleteProjectInput.safeParse(formValues(formData));
 
   if (!parsed.success) {
@@ -146,7 +200,7 @@ export async function deleteProject(
   const { project_id } = parsed.data;
   const deleted = await sql`
     DELETE FROM projects
-    WHERE id = ${project_id}
+    WHERE id = ${project_id} AND owner_id = ${userId}
     RETURNING id
   `;
 
