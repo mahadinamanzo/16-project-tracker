@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { auth, signIn, signOut } from "../auth";
 import { requireUser } from "../lib/session";
 
@@ -10,6 +11,12 @@ export default async function UserMenu() {
 
     return (
       <div className="flex items-center gap-3">
+        <Link
+          className="text-sm font-medium text-slate-600 hover:text-slate-950"
+          href="/settings"
+        >
+          Settings
+        </Link>
         {session.user.image ? (
           <Image
             alt={`${name}'s avatar`}

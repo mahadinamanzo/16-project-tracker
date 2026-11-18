@@ -70,6 +70,27 @@ export type ProjectTrackerStats = {
   overdueTasks: OverdueTask[];
 };
 
+export type UserProfile = {
+  id: number;
+  github_id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+};
+
+export async function getUserProfile(
+  userId: number,
+): Promise<UserProfile | null> {
+  const users = (await sql`
+    SELECT id, github_id, name, email, image
+    FROM users
+    WHERE id = ${userId}
+    LIMIT 1
+  `) as UserProfile[];
+
+  return users[0] ?? null;
+}
+
 export async function getProjects(
   ownerId: number,
 ): Promise<ProjectWithCounts[]> {
