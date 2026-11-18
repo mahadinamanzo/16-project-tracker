@@ -9,6 +9,7 @@ A server-rendered project and task tracker backed by Neon Postgres.
 - Move tasks between statuses optimistically or delete them with confirmation.
 - Filter project tasks by priority and title.
 - View aggregate task, priority, status, overdue, and project completion statistics.
+- Search projects and tasks globally with highlighted matches.
 - Show loading and error states while server-rendered pages load.
 - GitHub sign-in with private, per-user projects and tasks.
 - View GitHub profile details and delete an account with confirmation.
@@ -31,6 +32,7 @@ A server-rendered project and task tracker backed by Neon Postgres.
 - `src/auth.ts` configures Auth.js with GitHub and upserts users into the `users` table. Its JWT carries the application user ID, which is exposed as `session.user.id`.
 - Project reads, statistics, and mutations are scoped to the signed-in user's `owner_id`; server actions verify ownership in the SQL mutation itself.
 - `/settings` loads the signed-in user's GitHub profile. Account deletion removes the user row; the schema's cascading foreign keys remove the user's projects and tasks, and the action signs out afterward.
+- `/search` validates queries with Zod, searches only the signed-in user's projects and tasks with parameterized `ILIKE`, and highlights matches as escaped React text.
 - The `/api/auth/[...nextauth]` route handles OAuth callbacks. The shared `UserMenu` displays the GitHub avatar and name with sign-out, or a sign-in button.
 - `src/middleware.ts` redirects unauthenticated requests to `/login` with their original path and query as `callbackUrl`, except for login, Auth.js endpoints, and static assets. After GitHub returns to the Auth.js callback, Auth.js sets the JWT session cookie and sign-in resumes at that URL.
 - `next.config.ts` applies clickjacking, MIME-sniffing, referrer, and permissions-policy headers globally, plus HSTS in production.
@@ -140,9 +142,11 @@ Never commit `.env.local` or expose OAuth secrets. Rotate credentials if they ar
    );
    ```
 
-7. If upgrading a database with existing ownerless projects, run [`scripts/backfill-ownerless-projects.sql`](./scripts/backfill-ownerless-projects.sql) once in the Neon SQL Editor after replacing its GitHub ID placeholder with your numeric GitHub account ID. It only updates rows where `owner_id IS NULL` and returns the affected projects.
+7. Run [`db/migrations/002_global_search.sql`](./db/migrations/002_global_search.sql) in the Neon SQL Editor to enable `pg_trgm` and create indexes for substring search.
 
-8. Install dependencies and start the development server:
+8. If upgrading a database with existing ownerless projects, run [`scripts/backfill-ownerless-projects.sql`](./scripts/backfill-ownerless-projects.sql) once in the Neon SQL Editor after replacing its GitHub ID placeholder with your numeric GitHub account ID. It only updates rows where `owner_id IS NULL` and returns the affected projects.
+
+9. Install dependencies and start the development server:
 
    ```powershell
    npm install

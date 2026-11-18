@@ -37,6 +37,13 @@ export const DeleteProjectInput = z.object({
   project_id: projectId,
 });
 
+export const GlobalSearchInput = z.object({
+  query: z.string().trim().min(1, "Enter a search term.").max(
+    100,
+    "Search terms must be 100 characters or fewer.",
+  ),
+});
+
 export type ActionState = {
   ok: boolean;
   errors: Record<string, string[]>;

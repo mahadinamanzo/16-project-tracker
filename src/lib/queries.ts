@@ -78,6 +78,20 @@ export type UserProfile = {
   image: string | null;
 };
 
+export type GlobalSearchResult = {
+  type: "project" | "task";
+  id: number;
+  title: string;
+  description: string | null;
+  project_id: number;
+  project_name: string;
+  project_color: string;
+  status: TaskStatus | null;
+  priority: TaskPriority | null;
+  due_date: string | null;
+  created_at: string;
+};
+
 export async function getUserProfile(
   userId: number,
 ): Promise<UserProfile | null> {
@@ -89,6 +103,58 @@ export async function getUserProfile(
   `) as UserProfile[];
 
   return users[0] ?? null;
+}
+
+export async function searchProjectsAndTasks(
+  userId: number,
+  query: string,
+): Promise<GlobalSearchResult[]> {
+  const pattern = `%${query}%`;
+  const results = (await sql`
+    SELECT
+      'project'::text AS type,
+      p.id,
+      p.name AS title,
+      p.description,
+      p.id AS project_id,
+      p.name AS project_name,
+      p.color AS project_color,
+      NULL::text AS status,
+      NULL::text AS priority,
+      NULL::date AS due_date,
+      p.created_at
+    FROM projects AS p
+    WHERE p.owner_id = ${userId}
+      AND (
+        p.name ILIKE ${pattern}
+      OR p.description ILIKE ${pattern}
+      )
+
+    UNION ALL
+
+    SELECT
+      'task'::text AS type,
+      t.id,
+      t.title,
+      NULL::text AS description,
+      p.id AS project_id,
+      p.name AS project_name,
+      p.color AS project_color,
+      t.status,
+      t.priority,
+      t.due_date,
+      t.created_at
+    FROM tasks AS t
+    INNER JOIN projects AS p
+      ON p.id = t.project_id
+      AND p.owner_id = ${userId}
+    WHERE t.title ILIKE ${pattern}
+
+    ORDER BY created_at DESC
+    LIMIT 50
+  `) as GlobalSearchResult[];
+
+  return results;
 }
 
 export async function getProjects(
