@@ -65,9 +65,6 @@ export default async function SettingsPage() {
             {profile.email && (
               <p className="mt-1 text-sm text-slate-600">{profile.email}</p>
             )}
-            <p className="mt-1 text-xs text-slate-500">
-              GitHub account ID: {profile.github_id}
-            </p>
           </div>
         </div>
       </section>
