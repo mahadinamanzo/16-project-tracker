@@ -1,5 +1,7 @@
 # Project Tracker
 
+[![CI](https://github.com/mahadinamanzo/16-project-tracker/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mahadinamanzo/16-project-tracker/actions/workflows/ci.yml)
+
 A server-rendered project and task tracker backed by Neon Postgres.
 
 ## Features
@@ -161,6 +163,8 @@ Never commit `.env.local` or expose OAuth secrets. Rotate credentials if they ar
 npm run lint
 npm run build
 ```
+
+GitHub Actions runs lint, TypeScript typechecking, and a production build on pull requests and pushes to `main`. Configure the `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, and `AUTH_GITHUB_SECRET` repository Actions secrets so the build has the required environment variables.
 
 ## Schema overview
 
